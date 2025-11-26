@@ -13,4 +13,5 @@ urlpatterns = [
     path('desvincular-telegram/', views.desvincular_telegram, name='desvincular_telegram'),
     path("marcar-notificaciones-leidas/", views.marcar_notificaciones_leidas, name="marcar_notificaciones_leidas"),
     path('transaccion/eliminar/<int:id>/', views.eliminar_transaccion, name='eliminar_transaccion'),
+    path('terminos/', views.terminos, name='terminos')
 ]

@@ -363,6 +363,9 @@ def vincular_telegram(request):
         }
     )
 
+def terminos(request):
+    return render(request, 'finanzas/terminos.html')
+
 @login_required
 def eliminar_transaccion(request, id):
     if request.method == "POST":
@@ -370,7 +373,7 @@ def eliminar_transaccion(request, id):
         transaccion.delete()
         messages.success(request, "Transacción eliminada correctamente.")
     # Redirige a la vista que carga las transacciones
-    return redirect('historial_transacciones')  # usa el nombre de tu URL
+    return redirect('historial_transacciones') 
 
 @login_required
 def desvincular_telegram(request):

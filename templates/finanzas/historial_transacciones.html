@@ -23,6 +23,16 @@
     </div>
 </form>
 <div>
+    {% if messages %}
+    <div class="messages-container">
+        {% for message in messages %}
+        <div class="message message-with-close {{ message.tags }}">
+            {{ message }}
+            <button class="close-msg" onclick="this.parentElement.style.display='none';">✖</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     <h3 class="transaction-fecha title_ultimosMovim">últimos 20 movimientos </h3>
 </div>
 

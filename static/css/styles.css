@@ -533,6 +533,25 @@ select {
     background-color: #e90000;
 }
 
+.message-with-close {
+    position: relative; /* necesario para el botón */
+    padding-right: 40px; /* deja espacio a la derecha para el botón */
+}
+
+.message-with-close .close-msg {
+    position: absolute;
+    top: 50%;
+    right: 10px; /* ajusta según lo quieras mover más a la derecha */
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+}
+
 .container-botTelegram {
     background-color: white;
     border-radius: 12px;
