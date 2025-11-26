@@ -1,0 +1,41 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ControlCash - Iniciar Sesión</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="login-page">
+    <div class="container">
+        <h1 class="title">ControlCash</h1>
+        <img src="{% static 'Logo ControlCash.png' %}" alt="Logo ControlCash" class="login-logo">
+        <h2 class="subtitle">Bienvenido de nuevo</h2>
+        
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="id_username">Nombre de usuario</label>
+                <input type="text" name="username" id="id_username" required>
+            </div>
+            <div class="form-group">
+                <label for="id_password">Contraseña</label>
+                <input type="password" name="password" id="id_password" required>
+            </div>
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="message {{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn2 btn-primary">Ingresar</button>
+        </form>
+        
+        <a href="{% url 'register' %}" class="btn btn2 btn-secondary">Registrarse</a>
+        
+        <p class="terms">Al continuar, aceptas nuestros <a href="#">Términos de Servicio</a>.</p>
+    </div>
+</body>
+</html>

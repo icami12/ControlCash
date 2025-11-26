@@ -1,0 +1,199 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ControlCash - Dashboard</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <button type="button" class="notification-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 24c1.104 0 2-.897 2-2h-4c0 1.103.896 2 2 2zm6.364-6V11c0-3.074-1.635-5.64-4.364-6.32V4c0-.828-.672-1.5-1.5-1.5S11 3.172 11 4v.68C8.27 5.36 6.636 7.926 6.636 11v7l-1.818 1.818v.682h16.364v-.682L18.364 18z"/>
+                </svg>
+            </button>
+            {% if noti_count > 0 %}
+                <span class="notification-count" id="noti-count">{{ noti_count }}</span>
+            {% endif %}
+<!-- 📌 Caja de notificaciones (oculta al inicio) -->
+            <div id="noti-dropdown" class="noti-dropdown hidden">
+                <h4>Notificaciones</h4>
+
+                {% if notificaciones %}
+                    {% for n in notificaciones %}
+                        <div class="notif-item">
+                            <p>{{ n.texto }}
+                                <button class="close-btn">❌</button>
+                            </p>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No hay notificaciones nuevas.</p>
+                {% endif %}
+            </div>
+
+            <h1 class="app-title">ControlCash</h1>
+            <div class="header-actions">
+                <form action="{% url 'vincularConBot' %}" method="get">
+                    <button type="submit" class="botTelegram-btn">Bot Telegram</button>
+                </form>
+                <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">Cerrar sesión</button>
+                </form>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <section class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Resumen</h2>
+                    <a href="{% url 'nuevo_registro' %}" class="btn btn-primary">Nuevo Registro</a>
+                </div>
+                <div class="summary-cards">
+                    <div class="card summary-card">
+                        <div class="card-label">Ingresos</div>
+                        <div class="card-amount income">${{ ingresos|floatformat:2 }}</div>
+                    </div>
+                    
+                    <div class="card summary-card">
+                        <div class="card-label">Gastos</div>
+                        <div class="card-amount expense">${{ gastos|floatformat:2 }}</div>
+                    </div>
+                </div>
+                
+                <div class="card flow-card">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-label">Saldo Actual</div>
+                            <div class="card-amount">${{ balance|floatformat:2 }}</div>
+                        </div>
+                        <div class="trend-indicator {% if balance_trend >= 0 %}positive{% else %}negative{% endif %}">
+                            {% if balance_trend >= 0 %}↑{% else %}↓{% endif %} {{ balance_trend|floatformat:0 }}%
+                        </div>
+                    </div>
+                    <div class="card-subtitle">Este Mes</div>
+                    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+                    <div id="plotly-container">
+                        {{ chart|safe }}
+                    </div>
+                </div>
+            </section>
+            
+            <section class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Movimientos Recientes</h2>
+                    <a href="{% url 'historial_transacciones' %}" class="btn btn-primary">Ver todo</a>
+                </div>
+
+                <div class="transactions-list">
+                    {% if transacciones %}
+                        {% for transaccion in transacciones %}
+                            <div class="transaction-item">
+                                <div class="transaction-fecha">{{ transaccion.fecha|date:"j-n-y" }}</div>
+
+                                <div class="transaction-icon {{ transaccion.categoria|lower }}">
+                                    {% if transaccion.tipo == 'ingreso' %}
+                                        <i class="fas fa-plus" style="background-color: rgb(206, 253, 206);"></i>
+                                    {% else %}
+                                        <i class="fas fa-minus" style="background-color: rgb(255, 206, 206);"></i>
+                                    {% endif %}
+                                </div>
+
+                                <div class="transaction-details">
+                                    <div class="transaction-category">{{ transaccion.categoria }}</div>
+                                    <div class="transaction-title">
+                                        <span class="preview">
+                                            {{ transaccion.descripcion|truncatechars:80 }}
+                                        </span>
+
+                                        <span class="completo" style="display:none;">
+                                            {{ transaccion.descripcion }}
+                                        </span>
+
+                                        {% if transaccion.descripcion|length > 80 %}
+                                            <button class="toggle">Ver más</button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="transaction-amount {% if transaccion.tipo == 'ingreso' %}income{% else %}expense{% endif %}">
+                                    {% if transaccion.tipo == 'ingreso' %}+{% else %}-{% endif %}${{ transaccion.cantidad|floatformat:2 }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="empty-state">No hay transacciones recientes</p>
+                    {% endif %}
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+        //Script para ver mas descripcion de las transacciones
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll(".toggle").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const contenedor = btn.parentElement;
+                    const preview = contenedor.querySelector(".preview");
+                    const completo = contenedor.querySelector(".completo");
+
+                    if (completo.style.display === "none") {
+                        preview.style.display = "none";
+                        completo.style.display = "inline";
+                        btn.textContent = "Ver menos";
+                    } else {
+                        preview.style.display = "inline";
+                        completo.style.display = "none";
+                        btn.textContent = "Ver más";
+                    }
+                });
+            });
+        });
+
+        const btn = document.querySelector(".notification-btn");
+        const dropdown = document.getElementById("noti-dropdown");
+
+        // Al hacer clic en la campana -> abrir/cerrar y marcar como leído
+        btn.addEventListener("click", () => {
+            dropdown.classList.toggle("hidden");
+
+            // Llamar a la API solo si lo estamos abriendo
+            if (!dropdown.classList.contains("hidden")) {
+                fetch("/marcar-notificaciones-leidas/")
+                    .then(r => r.json())
+                    .then(() => {
+                        // borrar el contador
+                        const count = document.querySelector(".notification-count");
+                        if (count) count.remove();
+                    });
+            }
+        });
+    //Script para marcar como leida la notificacion al hacer clic en ella
+        const notifDropdown = document.getElementById("noti-dropdown");
+        const notifCount = document.getElementById("notif-count");
+
+        notifDropdown.addEventListener("click", function(e) {
+            if (e.target.classList.contains("close-btn")) {
+
+                const item = e.target.closest(".notif-item");
+                item.remove();
+
+                actualizarContador();
+            }
+        });
+
+        function actualizarContador() {
+            const total = document.querySelectorAll(".notif-item").length;
+            notifCount.textContent = total > 0 ? total : "";
+        }
+    </script>
+</body>
+</html>

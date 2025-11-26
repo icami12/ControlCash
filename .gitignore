@@ -1,0 +1,19 @@
+# Entorno virtual
+venv/
+
+# Archivos Python compilados
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+
+# Base de datos local
+*.sqlite3
+
+# Configuración sensible
+.env
+config.py
+
+# IDEs
+.vscode/
+.trae/

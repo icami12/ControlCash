@@ -1,0 +1,645 @@
+/* Base Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Login/Register Styles */
+body.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 0;
+}
+
+.container {
+    background-color: white;
+    border-radius: 8px;
+    padding: 30px;
+    width: 100%;
+    max-width: 450px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Dashboard Styles */
+/* Update these styles in your existing CSS */
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100%;
+    margin: 0;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: relative;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+}
+
+/* Add logout button style */
+.header-actions {
+    position: absolute;
+    right: 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.header-actions .btn {
+    margin: 0;
+    padding: 8px 16px;
+}
+
+.logout-btn {
+    background-color: #e74c3c;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.3s;
+}
+
+.logout-btn:hover {
+    background-color: #c0392b;
+}
+
+/* Remove max-width constraints */
+@media (min-width: 768px) {
+    .app-container {
+        max-width: 100%;
+    }
+    
+    .main-content {
+        max-width: 100%;
+        padding: 16px 32px;
+    }
+}
+
+.menu-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 20px;
+    margin-right: 20px;
+    padding: 0;
+    width: 24px;
+}
+
+.menu-toggle span {
+    background-color: #333;
+    border-radius: 2px;
+    display: block;
+    height: 2px;
+    width: 100%;
+}
+
+.app-title {
+    color: #cfab15;
+    margin: 0;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 20px;
+    flex: 1;
+}
+
+.main-content {
+    flex: 1;
+    padding: 16px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.section {
+    margin-bottom: 24px;
+}
+
+.section-title {
+    color: #333;
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+/* Cards */
+.summary-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.card {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    padding: 16px;
+}
+
+.summary-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-label {
+    color: #666;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.card-amount {
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.income {
+    color: #5a8f56;
+}
+
+.expense {
+    color: #e74c3c;
+}
+
+.flow-card {
+    margin-bottom: 16px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+}
+
+.card-subtitle {
+    color: #999;
+    font-size: 12px;
+    margin-bottom: 16px;
+}
+
+.trend-indicator {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.positive {
+    color: #5a8f56;
+}
+
+.negative {
+    color: #e74c3c;
+}
+
+.chart-container {
+    height: 220px;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Transactions */
+.transactions-list {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.transaction-item {
+    display: flex;
+    align-items: center; /* antes estaba center */
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.transaction-fecha {
+    font-size: 12px;
+    color: #666;
+    margin-right: 12px;
+    min-width: 55px;
+    line-height: 1.2;
+    text-align: left;
+    padding-top: 3px; /* levanta un poco la fecha */
+}
+
+.title_ultimosMovim {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.transaction-item:last-child {
+    border-bottom: none;
+}
+
+.transaction-icon .fas{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+    font-size: 20px;
+}
+.fas {
+    background-color: #e0e0e0;
+}
+
+.food {
+    background-color: #ffeaa7;
+}
+
+.salary {
+    background-color: #d6e4ff;
+}
+
+.shopping {
+    background-color: #ffd3e2;
+}
+
+.other {
+    background-color: #e0e0e0;
+}
+
+.transaction-details {
+    flex: 1;
+}
+
+.transaction-title {
+    color: #999;
+    margin-bottom: 4px;
+}
+
+.transaction-category {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.transaction-amount {
+    font-weight: 600;
+}
+
+.empty-state {
+    padding: 32px 16px;
+    text-align: center;
+    color: #999;
+}
+
+.noti-dropdown {
+    position: absolute;
+    top: 50px;
+    left: 0; 
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    width: 260px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    z-index: 999;
+}
+.hidden {
+    display: none;
+}
+.noti-dropdown h4 {
+    margin-top: 0;
+    font-weight: bold;
+}
+
+#plotly-container {
+    width: 100%;
+    height: 220px; /* mismo height que tu fig en la vista */
+    position: relative;
+}
+#plotly-container > div {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Floating Action Button */
+.fab {
+    background-color: #5a8f56;
+    border: none;
+    border-radius: 50%;
+    bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: white;
+    cursor: pointer;
+    font-size: 24px;
+    height: 56px;
+    position: fixed;
+    right: 24px;
+    width: 56px;
+    z-index: 100;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 500;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.btn {
+    display: inline-flex; /* para alinearlo con inputs */
+    align-items: center;  /* centrado vertical */
+    justify-content: center;
+    padding: 8px 16px;    /* tamaño más compacto */
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background-color: #5a8f56;
+    color: white;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+/* Media Queries */
+@media (min-width: 768px) {
+    .app-container {
+        max-width: 100%;
+    }
+    
+    .main-content {
+        max-width: 768px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .card-amount {
+        font-size: 20px;
+    }
+    
+    .section-title {
+        font-size: 18px;
+    }
+}
+
+/* Add these styles to your existing CSS file */
+
+.back-button {
+    color: #333;
+    text-decoration: none;
+    font-size: 18px;
+}
+
+.transaction-form {
+    background-color: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: nowrap; /* No permitir que se rompa la fila */
+    gap: 15px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    justify-content: space-between; /* O space-between si quieres que el botón quede a la derecha */
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 10px; /* shorthand de grow/shrink/basis */
+    min-width: 10px;
+}
+
+.filter-form .btn-primary {
+    flex: 0 0 auto; /* Que no crezca ni se encoja */
+    padding: 12px 20px;
+}
+
+select {
+    background-color: white;
+}
+
+.small-link {
+    display: block;
+    margin-top: 8px;
+    color: #5a8f56;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.messages {
+    margin-bottom: 20px;
+}
+
+.message {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+/* Add to your existing styles */
+.message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    animation: shake 0.5s;
+}
+
+.aceptar-btn{
+    background-color: #55d355;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 17px;
+    margin-top: 17px;
+}
+
+.aceptar-btn:hover {
+    background-color: #32aa1a;
+}
+
+.delete-btn {
+    background-color: #fa4d4d;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+     margin-left: 17px;
+}
+
+.delete-btn:hover {
+    background-color: #e90000;
+}
+
+.container-botTelegram {
+    background-color: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.container-botTelegram ol {
+    padding-left: 40px; /* aumenta espacio a la derecha */
+    list-style-position: inside; /* los números se meten dentro del padding */
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-buttons .btn {
+    flex: 1;
+    margin: 15px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between; /* Esto empuja los elementos a los extremos */
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 10px;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.section-header .section-title {
+    margin: 0;
+    color: #333;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.section-header .btn-primary {
+    background-color: #5a8f56;
+    transition: background-color 0.3s;
+    padding: 8px 16px; /* tamaño del botón */
+    width: auto;        /* importante: no ocupar todo el espacio */
+    flex-shrink: 0;
+}
+
+.section-header .btn-primary:hover {
+    background-color: #d0ac17;
+}
+
+.btn2.btn-secondary {
+    width: 100%;
+    margin-top: 15px;
+    background-color: #d4edda;
+}
+
+.btn2 {
+    width: 100%;
+    background-color: #5a8f56;
+}
+
+.login-logo {
+    display: block;
+    margin: 20px auto 20px auto;
+    max-width: 150px; /* Ajusta el tamaño según sea necesario */
+    height: auto;
+}
+
+.title {
+    display: block;
+    margin: 20px 100px 20px;
+    max-width: 150px; /* Ajusta el tamaño según sea necesario */
+    height: auto;
+}
+
+button.botTelegram-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    background-color: #39d2f8;
+    color: white;
+
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: none;
+
+    cursor: pointer;
+    font-weight: 500;
+
+    transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+button.botTelegram-btn:hover {
+    background-color: #086da8;
+    color: #fff;
+}
+

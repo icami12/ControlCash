@@ -1,0 +1,128 @@
+{% extends 'finanzas/base.html' %}
+
+{% block title %}Historial de Transacciones{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2 class="section-title">Historial de Transacciones</h2>
+    <a href="{% url 'historial_transacciones' %}" class="btn btn-primary">Ver todos</a>
+</div>
+
+<form method="get" class="filter-form">
+    <div class="filter-group">
+        <label for="filter-date">Fecha:</label>
+        <input type="date" id="filter-date" name="fecha" value="{{ request.GET.fecha }}">
+        <label for="filter-category">Categoría:</label>
+        <select id="filter-category" name="categoria">
+            <option value="">Todas</option>
+            {% for valor, etiqueta in categorias %}
+                <option value="{{ valor }}">{{ etiqueta }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+    </div>
+</form>
+<div>
+    <h3 class="transaction-fecha title_ultimosMovim">últimos 20 movimientos </h3>
+</div>
+
+<div class="transactions-list">
+    {% if transacciones %}
+        {% for transaccion in transacciones %}
+            <div class="transaction-item">
+                <div class="transaction-fecha">{{ transaccion.fecha|date:"j-n-y" }}</div>
+                <div class="transaction-icon {{ transaccion.categoria|lower }}">
+                    {% if transaccion.tipo == 'ingreso' %}
+                        <i class="fas fa-plus" style="background-color: rgb(206, 253, 206);"></i>
+                    {% else %}
+                        <i class="fas fa-minus" style="background-color: rgb(255, 206, 206);"></i>
+                    {% endif %}
+                </div>
+                <div class="transaction-details">
+                    <div class="transaction-category">{{ transaccion.categoria }}</div>
+                    <div class="transaction-title">
+                        <span class="preview">
+                            {{ transaccion.descripcion|truncatechars:80 }}
+                        </span>
+
+                        <span class="completo" style="display:none;">
+                            {{ transaccion.descripcion }}
+                        </span>
+
+                        {% if transaccion.descripcion|length > 80 %}
+                            <button class="toggle">Ver más</button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="transaction-amount {% if transaccion.tipo == 'ingreso' %}income{% else %}expense{% endif %}">
+                    {% if transaccion.tipo == 'ingreso' %}+{% else %}-{% endif %}${{ transaccion.cantidad|floatformat:2 }}
+                </div>
+                
+                <form method="POST" action="{% url 'eliminar_transaccion' transaccion.id %}" class="delete-form">
+                    {% csrf_token %}
+                    <button type="button" class="delete-btn">✖</button> <!-- botón tipo "button" -->
+                </form>
+
+
+            </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">No hay transacciones registradas.</p>
+    {% endif %}
+</div>
+<div id="confirmModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+  <div style="background:white; padding:20px; border-radius:10px; max-width:400px; margin:100px auto; text-align:center;">
+    <p>¿Estás seguro de que quieres borrar esta transacción?</p>
+    <button id="confirmYes" class="aceptar-btn">Sí</button>
+    <button id="confirmNo" class="delete-btn">No</button>
+  </div>
+</div>
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll(".toggle").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const contenedor = btn.parentElement;
+                    const preview = contenedor.querySelector(".preview");
+                    const completo = contenedor.querySelector(".completo");
+
+                    if (completo.style.display === "none") {
+                        preview.style.display = "none";
+                        completo.style.display = "inline";
+                        btn.textContent = "Ver menos";
+                    } else {
+                        preview.style.display = "inline";
+                        completo.style.display = "none";
+                        btn.textContent = "Ver más";
+                    }
+                });
+            });
+        });
+
+        // Modal de confirmacion
+        const modal = document.getElementById('confirmModal');
+        const btnYes = document.getElementById('confirmYes');
+        const btnNo = document.getElementById('confirmNo');
+        let currentForm = null;
+
+        // Cuando se hace clic en cualquier botón de eliminar
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function(){
+                currentForm = this.closest('form'); // guardamos el formulario correspondiente
+                modal.style.display = 'block';
+            });
+        });
+
+        // Botón NO: cierra el modal
+        btnNo.addEventListener('click', function(){
+            modal.style.display = 'none';
+            currentForm = null;
+        });
+
+        // Botón SÍ: envía el formulario
+        btnYes.addEventListener('click', function(){
+            if(currentForm){
+                currentForm.submit();
+            }
+        });
+    </script>
+{% endblock %}

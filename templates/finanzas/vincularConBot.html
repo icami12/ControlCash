@@ -1,0 +1,79 @@
+{% extends 'finanzas/base.html' %}
+
+{% block title %}Vinculacion con Bot{% endblock %}
+
+{% block content %}
+<div class="section-header section-header--center">
+    <h2 class="section-title" style="color: rgb(21, 211, 245);">@ControlCashCargBot en Telegram 🤖👍</h2>
+</div>
+{% if not usuario_vinculado %}
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+<div class="container-botTelegram">
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <label for="codigo">Tu código de vinculación:</label>
+        <input 
+            type="password" 
+            id="codigo" 
+            value="{{ codigo }}" 
+            readonly 
+            style="width: 200px; padding: 6px;"
+        >
+
+        <button type="button"
+            onclick="toggleCodigo()"
+            class="btn btn-secondary">
+            Ver / Ocultar
+        </button>
+    </div>
+</div>
+<div class="container-botTelegram">
+    <h4>Nueva experiencia en ControlCash👋. Vinculate con nuestro Bot Inteligente y automatizá tus cargas en el sistema con un simple mensaje.</h4>
+    <p>Sigue estos pasos:</p>
+    <ol>
+        <li>Abre Telegram y busca <strong>@ControlCashCargBot</strong> en la lupa de la aplicación.</li>
+        <li>Escribe el comando <strong>/start</strong> en el chat para iniciar con la vinculación.</li>
+        <li>Se te solicitará que ingreses tu <strong>código de vinculación</strong> de cuenta. Sigue las instrucciones.</li>
+        <li>El bot te confirmará la vinculación.</li>
+    </ol>
+    <p>¡Listo! Prueba mandandole un mensaje con un ingreso y registralo automáticamente.</p>
+</div>
+{% else %}
+<div class="container-botTelegram">
+    <h4>Ya estás vinculado con el Bot. ¡Listo para usar!</h4>
+    <p>ℹ️ Estructuras típicas que puedes mandar al bot para guardar correctamente un registro por mensaje: </p>
+    <ol>
+        <li><strong>/gasto 25000 supermercado</strong> - Registra un gasto de 25000 en la categoría "supermercado".</li>
+        <li><strong>/ingreso 150000 venta moto</strong> - Registra un ingreso de 150000 en la categoría "ventas".</li>
+        <li><strong>/saldo</strong> - Muestra tu saldo actual.</li>
+        <li><strong>/ayuda</strong> - Muestra este mensaje de ayuda.</li>   
+    </ol>
+    <div style="display: flex;margin-top: 30px; gap: 8px; align-items: center;">
+        <form method="POST"
+            action="{% url 'desvincular_telegram' %}"
+            onsubmit="return confirm('¿Seguro que querés desvincular tu cuenta de Telegram?');">
+            {% csrf_token %}
+            <button class="btn btn-secondary" type="submit">
+                Desvincular de ese dispositivo
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+<script>
+function toggleCodigo() {
+    const campo = document.getElementById("codigo");
+
+    if (campo.type === "password") {
+        campo.type = "text";
+    } else {
+        campo.type = "password";
+    }
+}
+</script>
+
+{% endblock %}
+
