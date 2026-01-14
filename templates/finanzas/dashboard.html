@@ -60,12 +60,12 @@
                 <div class="summary-cards">
                     <div class="card summary-card">
                         <div class="card-label">Ingresos</div>
-                        <div class="card-amount income">${{ ingresos|floatformat:2 }}</div>
+                        <div class="card-amount income">${{ ingresos }}</div>
                     </div>
                     
                     <div class="card summary-card">
                         <div class="card-label">Gastos</div>
-                        <div class="card-amount expense">${{ gastos|floatformat:2 }}</div>
+                        <div class="card-amount expense">${{ gastos }}</div>
                     </div>
                 </div>
                 
@@ -73,7 +73,7 @@
                     <div class="card-header">
                         <div>
                             <div class="card-label">Saldo Actual</div>
-                            <div class="card-amount">${{ balance|floatformat:2 }}</div>
+                            <div class="card-amount">${{ balance }}</div>
                         </div>
                         <div class="trend-indicator {% if balance_trend >= 0 %}positive{% else %}negative{% endif %}">
                             {% if balance_trend >= 0 %}↑{% else %}↓{% endif %} {{ balance_trend|floatformat:0 }}%

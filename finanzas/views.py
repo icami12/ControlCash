@@ -8,6 +8,7 @@ from .models import Transaccion, Categoria, Perfil, Notificacion
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 import os, string, json, requests, random
+import logging
 from django.http import JsonResponse,HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import re
@@ -16,14 +17,25 @@ from plotly.offline import plot
 from django.db.models.functions import TruncDay
 import pandas as pd
 from django.utils.timezone import now
-from .ocr_utils import extraer_texto_imagen
-from io import BytesIO
-from PIL import Image
-import pytesseract
+from finanzas.utils.ocr import extraer_texto_imagen_bytes
 from dotenv import load_dotenv
+from openai import OpenAI
+from finanzas.utils.fechas import resolver_fecha
+from finanzas.utils.control_ia import (
+    ia_bloqueada,
+    registrar_no_transaccion,
+    registrar_transaccion_valida
+)
+from finanzas.utils.formatos import formatear_pesos
+from finanzas.utils.graficos import generar_grafico_balance
 
 load_dotenv()
+# Cargar también .env.local para permitir OPENAI_API_KEY local
+load_dotenv(".env.local", override=True)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+# Logger de módulo
+logger = logging.getLogger(__name__)
 
 def login_view(request):
     if request.method == 'POST':
@@ -57,7 +69,7 @@ def register_view(request):
 @login_required
 def dashboard(request):
     notificaciones = Notificacion.objects.filter(leido=False).order_by('-fecha')
-    noti_count = Notificacion.objects.filter(leido=False).count()
+    noti_count = notificaciones.count()
 
     movimientos_recientes = (
         Transaccion.objects
@@ -75,83 +87,16 @@ def dashboard(request):
 
     balance = ingresos - gastos
 
-    # --- Series temporal real ---
-    data = (
-        Transaccion.objects.filter(usuario=request.user)
-        .annotate(dia=TruncDay("fecha"))
-        .values("dia")
-        .annotate(total=Sum("cantidad"))
-        .order_by("dia")
-    )
-
-    if data:
-        df = pd.DataFrame(data)
-        df["dia"] = pd.to_datetime(df["dia"])
-    else:
-        df = pd.DataFrame({"dia": [], "total": []})
-
-    # --- Plotly figure (estilo moderno) ---
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatter(
-        x=df["dia"],
-        y=df["total"],
-        mode="lines",
-        line=dict(width=3, color="#d4af37"),  # dorado fino
-        fill="tozeroy",
-        fillcolor="rgba(212,175,55,0.15)",
-        hovertemplate="%{x|%d-%m-%Y}<br>$%{y:.2f}<extra></extra>"
-    ))
-
-    # --- Layout minimalista ---
-    fig.update_layout(
-        margin=dict(l=0, r=0, t=10, b=0),
-        height=200,
-        showlegend=False,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            tickformat="%b %d",
-            color="#aaa",
-        ),
-        yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            visible=False
-        )
-    )
-
-    # --- Calcular balance del mes anterior ---
-    hoy = now()
-    primer_dia_mes_actual = hoy.replace(day=1)
-
-    ultimo_dia_mes_anterior = primer_dia_mes_actual - timedelta(days=1)
-    primer_dia_mes_anterior = ultimo_dia_mes_anterior.replace(day=1)
-
-    balance_mes_anterior = (
-        Transaccion.objects.filter(
-            usuario=request.user,
-            fecha__gte=primer_dia_mes_anterior,
-            fecha__lte=ultimo_dia_mes_anterior,
-        ).aggregate(total=Sum("cantidad"))["total"] or 0
-    )
-
-    # --- Trend real ---
-    if balance_mes_anterior == 0:
-        balance_trend = 100 if balance > 0 else 0
-    else:
-        balance_trend = ((balance - balance_mes_anterior) / balance_mes_anterior) * 100
-
-    chart_html = plot(fig, output_type='div', include_plotlyjs=False)
+    chart_html = generar_grafico_balance(request.user)
+    print("INGRESOS RAW:", ingresos, type(ingresos))
+    print("GASTOS RAW:", gastos, type(gastos))
+    print("BALANCE RAW:", balance, type(balance))
 
     context = {
         "transacciones": movimientos_recientes,
-        "ingresos": ingresos,
-        "gastos": gastos,
-        "balance": balance,
-        "balance_trend": balance_trend,
+        "ingresos": formatear_pesos(ingresos),
+        "gastos": formatear_pesos(gastos),
+        "balance": formatear_pesos(balance),
         "chart": chart_html,
         "notificaciones": notificaciones,
         "noti_count": noti_count,
@@ -243,13 +188,10 @@ def webhook(request):
 
             # Descargar imagen en memoria
             img_bytes = requests.get(url).content
-            img = Image.open(BytesIO(img_bytes))
 
-            # Pasar por OCR directamente desde memoria
-            texto = pytesseract.image_to_string(img)
+            texto = extraer_texto_imagen_bytes(img_bytes)
 
-            if texto.strip():
-                # 🔥 Ahora procesás el OCR igual que un mensaje normal
+            if texto:
                 try:
                     procesar_mensaje_usuario(chat_id, texto)
                 except Exception as e:
@@ -264,16 +206,32 @@ def webhook(request):
 
         # Si es comando para vincular
         if text.startswith("/vincular"):
+        # 1️⃣ Verificar si este chat YA está vinculado
+            if Perfil.objects.filter(telegram_chat_id=chat_id).exists():
+                send_message(
+                    chat_id,
+                    "📣 Este chat ya está vinculado a una cuenta de ControlCash.\n"
+                    "Si necesitás cambiar la vinculación, desvincula este dispositivo desde la web."
+                )
+                return JsonResponse({"status": "ok"})
+
+            # 2️⃣ Obtener código
             try:
                 _, codigo = text.split(" ", 1)
-            except:
+                codigo = codigo.strip()
+            except ValueError:
                 send_message(chat_id, "Formato incorrecto. Usá: /vincular CODIGO")
                 return JsonResponse({"status": "ok"})
 
+            # 3️⃣ Validar código
             try:
-                perfil = Perfil.objects.get(telegram_code=codigo.strip())
+                perfil = Perfil.objects.get(telegram_code=codigo)
             except Perfil.DoesNotExist:
-                send_message(chat_id, "Código inválido ❌ Respeta mayúsculas y números u obten un codigo válido.")
+                send_message(
+                    chat_id,
+                    "❌ Código inválido.\n"
+                    "Respetá mayúsculas y números u obtené un código válido desde la web."
+                )
                 return JsonResponse({"status": "ok"})
 
             # Vincular
@@ -281,18 +239,19 @@ def webhook(request):
             perfil.telegram_code = None
             perfil.save()
             nombre = perfil.user.username
-            mensaje = f"Hola {nombre} 👋\nTu cuenta fue vinculada correctamente ✔️\nEnvía /ayuda para conocer qué comandos manejamos."
-
+            mensaje = f"Hola {nombre} 👋.Te vinculaste correctamente.\nDime la primer transacción que quieras que registre por favor."
+            send_message(chat_id, mensaje)
+            mensaje = "⚠️Recuerda detallar la fecha de la transacción, sino considero que es de hoy 😊.\nEnvía /ayuda para conocer qué comandos manejamos."
             send_message(chat_id, mensaje)
             return JsonResponse({"status": "ok"})
         elif text.strip() == "/ayuda":
             send_message(
                 chat_id,
-                "😊Comandos disponibles:\n"
+                "Comandos disponibles:\n"
                 "/vincular - Vincular tu cuenta con ControlCash. Ej: /vincular 123456\n"
                 "/ayuda - Mostrar este mensaje\n"
                 "/saldo - Ver tu saldo actual\n"
-                "Puedes también escribir: 'gasté 20000 en comida el 24-10-25' u 'hoy ingreso 150000 sueldo'"
+                "Puedes escribir: 'gasté 20000 en comida el 24-10-25', 'hoy ingreso 150000 sueldo', o de la forma que quieras expresarte.0"
             )
             return JsonResponse({"status": "ok"})
 
@@ -313,13 +272,11 @@ def webhook(request):
             balance = ingresos - gastos
 
             mensaje = (
-                "💰 Saldo disponible: "
-                f"${balance}\n\n"
+                "💰 Saldo cta PESOS: "
+                f"${formatear_pesos(balance)}\n\n"
                 "📊 Estado de cuenta:\n"
-                f"+ Ingresos: {ingresos}\n"
-                f"- Gastos: {gastos}\n"
-                "---------------------\n"
-                f"💰 Saldo: {balance}"
+                f"+ Ingresos: ${formatear_pesos(ingresos)}\n"
+                f"- Gastos: ${formatear_pesos(gastos)}\n"
             )
 
             send_message(chat_id, mensaje)
@@ -329,7 +286,7 @@ def webhook(request):
         try:
             perfil = Perfil.objects.get(telegram_chat_id=chat_id)
         except Perfil.DoesNotExist:
-            send_message(chat_id, "¡Hola!👋 Notamos que no estás vinculado al sistema ControlCash.\nEnvianos tu CODIGO_DE_VINCULACION para poder utilizar este bot.\nSi no tienes una cuenta puedes registrarte en www.ControlCash. com.")
+            send_message(chat_id, "¡Hola!👋 Notamos que no estás vinculado al sistema ControlCash.\nEnvianos /vincular codigo_de_vinculacion para poder utilizar este bot.\nSi no tienes una cuenta puedes registrarte en https://terence-fibrotic-communicably.ngrok-free.dev/")
             return JsonResponse({"status": "ok"})
 
         # Usuario vinculado → procesar su mensaje
@@ -386,7 +343,6 @@ def desvincular_telegram(request):
     return redirect('dashboard')
 
 def procesar_mensaje_usuario(chat_id, text):
-    # Traer usuario
     try:
         perfil = Perfil.objects.get(telegram_chat_id=chat_id)
         usuario = perfil.user
@@ -394,239 +350,144 @@ def procesar_mensaje_usuario(chat_id, text):
         send_message(chat_id, "Tu cuenta no está vinculada. Vinculá desde la web.")
         return
 
-    # Detectar tipo
-    tipo = detectar_tipo(text)
-
-    # Detectar monto
-    cantidad = detectar_monto(text)
-
-    if not tipo or not cantidad:
-        send_message(chat_id,
-            "No pude entender tu mensaje.\n\nProbá con:\n"
-            "• 'ayer gasté 20000 en comida'\n"
-            "• '17-11-25 ingreso 150000 sueldo'"
+    # 🚫 1) BLOQUEO DE IA (ANTES de gastar tokens)
+    if ia_bloqueada(perfil):
+        send_message(
+            chat_id,
+            "⏳ En unos minutos podré ayudarte con transacciones reales.\nDetecté mensajes que no debo procesar. Vuelve a intentar más tarde con algo como: \n"
+            "Ej: 'gasté 1200 en comida hoy'"
         )
         return
 
-    categoria = detectar_categoria(text)
-    destino = detectar_destino(text)  # opcional
-    descripcion = text
-    fecha = obtener_fecha(text)
-    if fecha is None:
-        send_message(chat_id, "No pude entender la fecha. ¿Podés indicarla? Ej: hoy, ayer, 20-11-2025")
+    # 🤖 2) LLAMADA A LA IA
+    data, err = extraer_transaccion_openai(text)
+    if err or not data:
+        registrar_no_transaccion(perfil)
+        logger.error(f"[Bot] Error IA: err={err} data={data}")
+        send_message(chat_id, "No pude entender la transacción 😕")
         return
+
+    # 🛑 3) NO ES TRANSACCIÓN (suposición / futuro / idea)
+    if not data.get("es_transaccion", True):
+        registrar_no_transaccion(perfil)
+        send_message(
+            chat_id,
+            "ℹ️ Parece que compartiste una idea o una compra futura.\n"
+            "Sólo registro transacciones que ya ocurrieron."
+        )
+        return
+
+    # 🧾 4) VALIDACIONES DE NEGOCIO
+    if not data.get("tipo") or not data.get("monto"):
+        registrar_no_transaccion(perfil)
+        send_message(chat_id, "Falta información clave (tipo o monto). ¿Podés aclararlo?")
+        return
+
+    fecha = resolver_fecha(text, data)
+
+    tipo = data["tipo"].lower()
+    if tipo not in {"ingreso", "gasto"}:
+        registrar_no_transaccion(perfil)
+        send_message(chat_id, "No pude determinar si es ingreso o gasto.")
+        return
+
+    try:
+        monto = Decimal(str(data["monto"]))
+    except Exception:
+        registrar_no_transaccion(perfil)
+        send_message(chat_id, "El monto detectado no es válido.")
+        return
+
+    CATEGORIAS_VALIDAS = {
+        "Comida", "Salario", "Compras",
+        "Transferencias", "Servicios",
+        "Ventas", "Otros"
+    }
+    categoria = data["categoria"] if data.get("categoria") in CATEGORIAS_VALIDAS else "Otros"
+
+    # 🤔 5) CONFIDENCE BAJA → NO BLOQUEA
+    if data.get("confidence", 0) < 0.7:
+        send_message(
+            chat_id,
+            "Detecté esto, ¿confirmás?\n"
+            + json.dumps(data, indent=2, ensure_ascii=False)
+        )
+        return
+
+    # ✅ 6) TRANSACCIÓN VÁLIDA → RESET STRIKES
+    registrar_transaccion_valida(perfil)
+    print("MONTO IA:", data["monto"])
+    print("MONTO FINAL A GUARDAR:", monto)
 
     Transaccion.objects.create(
         usuario=usuario,
         tipo=tipo,
-        cantidad=cantidad,
-        descripcion=descripcion,
+        cantidad=monto,
         categoria=categoria,
-        destino=destino,
-        fecha = fecha
+        destino=data.get("destino"),
+        fecha=fecha,
+        descripcion=text
     )
 
-    send_message(chat_id, f"✔ Registrado {tipo} de ${cantidad} correctamente.")
-    #crear notificacion al registrar
-    Notificacion.objects.create(
-        texto=f"Se registró una nueva transacción por ${cantidad} el {fecha}."
-    )
+    send_message(chat_id, "✅ Transacción registrada correctamente.")
 
-def detectar_tipo(text):
-    t = text.lower()
+    
+def extraer_transaccion_openai(text):
+    print("🔥 ENTRO A extraer_transaccion_openai 🔥", flush=True)
+    print("Texto recibido:", text, flush=True)
 
-    # Palabras clave de gasto
-    gasto_kw = ["gast", "pag", "pagué", "pague", "compr", "transfer", "envie", "envié", "mand"]
-    if any(k in t for k in gasto_kw):
-        return "gasto"
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None, "missing_api_key"
 
-    # Palabras clave de ingreso
-    ingreso_kw = ["ingres", "cobr", "me deposit", "me pagaron", "vendí", "vendi", "me trans","me pas"]
-    if any(k in t for k in ingreso_kw):
-        return "ingreso"
+    client = OpenAI(api_key=api_key)
 
-    return None
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """
+                Extraé una transacción financiera SOLO si el texto describe
+                una acción que YA ocurrió.
 
-def detectar_monto(text):
-    t = text.lower()
+                Si es una suposición, intención futura o posibilidad,
+                respondé EXCLUSIVAMENTE en formato JSON con:
 
-    # 1️⃣ Quitar fechas tipo 12-11-24
-    t = re.sub(r'\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b', '', t)
+                {
+                "es_transaccion": false
+                }
 
-    # 2️⃣ Buscar montos con signo $
-    montos_con_signo = re.findall(
-        r'\$\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,]\d{2})?|\d+)',
-        t
-    )
+                Si ocurrió, respondé EXCLUSIVAMENTE en formato JSON con:
 
-    if montos_con_signo:
-        limpio = max(montos_con_signo, key=lambda x: float(x.replace(".", "").replace(",", ".")))
-        limpio = limpio.replace(".", "").replace(",", ".")
-        return Decimal(limpio)
+                {
+                "tipo": "ingreso" | "gasto",
+                "monto": number,
+                "categoria": "Comida" | "Salario" | "Compras" | "Transferencias" | "Servicios" | "Ventas" | "Otros",
+                "fecha": "YYYY-MM-DD" | null,
+                "destino": string | null,
+                "confidence": number
+                }
+                """
+                },
+                {
+                    "role": "user",
+                    "content": text
+                }
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=120
+        )
 
-    # 3️⃣ Buscar montos formateados tipo 78.000 o 1,250
-    montos_formato = re.findall(
-        r'\b[0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,]\d{2})?\b',
-        t
-    )
+        contenido = response.choices[0].message.content
+        data = json.loads(contenido)
 
-    if montos_formato:
-        montos_formato = [m for m in montos_formato if len(m.replace(".", "").replace(",", "")) <= 10]
-        if montos_formato:
-            limpio = max(montos_formato, key=lambda x: float(x.replace(".", "").replace(",", ".")))
-            limpio = limpio.replace(".", "").replace(",", ".")
-            return Decimal(limpio)
+        return data, None
 
-    # 4️⃣ Buscar expresiones tipo "5 mil", "10mil", "3 lucas"
-    multiplicadores = {
-        "mil": 1000,
-        "miles": 1000,
-        "m": 1000,
-        "k": 1000,
-        "lucas": 1000,
-        "luca": 1000,
-    }
-
-    matches_palabras = re.findall(r'(\d+)\s*(mil|miles|m|k|lucas|luca)\b', t)
-    if matches_palabras:
-        valores = []
-        for numero, palabra in matches_palabras:
-            valor = int(numero) * multiplicadores[palabra]
-            valores.append(valor)
-        return Decimal(max(valores))
-
-    # 5️⃣ Números sueltos
-    numeros = re.findall(r'\b\d{1,10}\b', t)
-    if numeros:
-        num = max(numeros, key=lambda x: int(x))
-        return Decimal(num)
-
-    return None
-
-def detectar_categoria(text):
-    t = text.lower()
-
-    categorias = {
-        "Comida": ["comida", "almuerzo", "cena","merienda", "restaurante"],
-        "Salario": ["salario", "sueldo", "me pagaron", "cobré"],
-        "Compras": ["compré", "compre","compra", "tienda","kiosco","local","shop", "tarjeta"],
-        "Transferencias": ["transferi", "transfirio","mandé", "envie", "envié", "transferencia"],
-        "Servicios": ["luz", "agua", "gas", "internet","boleta","telefono","alquiler","cable","seguro","colegio","escuela"],
-        "Ventas": ["vendí", "vendi", "me trans","me pas", "venta"],
-    }
-
-    for cat, palabras in categorias.items():
-        if any(p in t for p in palabras):
-            return cat
-
-    return "Otros"
-
-def detectar_destino(text):
-    t = text.replace("\n", " ")
-    stopwords = r"(?:\bCUIT\b|\bCUIL\b|\bCBU\b|\bCVU\b|\bCuenta\b|\bBanco\b|\bAlias\b|\bNro\b|\bNúmero\b|\bImporte\b|\bMonto\b|\bTransacci[oó]n\b)"
-    # 1. Tomar el texto después de A / Para / Hacia
-    match = re.search(
-        r"(?:Para|A|Hacia)\s+([A-Za-zÁÉÍÓÚÑáéíóúñ .'-]{3,80})",
-        t,
-        re.IGNORECASE
-    )
-    if not match:
-        return None
-
-    candidato = match.group(1)
-
-    # 2. Cortar por stopwords si aparecen
-    #    Ej: "Juan Perez CBU 123..." -> "Juan Perez"
-    candidato = re.split(stopwords, candidato, flags=re.IGNORECASE)[0].strip()
-
-    # 3. Limpieza
-    candidato = candidato.strip(" .:-")
-
-    # 4. Validaciones fuertes para evitar falsos positivos
-    # ❌ No debe contener números
-    if re.search(r"\d", candidato):
-        return None
-
-    # ❌ No debe ser demasiado corto o demasiado largo
-    if not (5 <= len(candidato) <= 60):
-        return None
-
-    # ❌ Debe tener al menos dos palabras tipo nombre-apellido
-    partes = candidato.split()
-    if len(partes) < 2:
-        return None
-
-    # ❌ Cada parte debe ser razonable
-    for p in partes:
-        # evitar cosas como "CTA", "BANCO", "TRANSFERENCIA"
-        if len(p) < 2:
-            return None
-        if p.isupper() and len(p) > 4:  # palabras sospechosas tipo "TRANSFERENCIA"
-            return None
-
-    return candidato
-
-#detectando fecha de menos a mas especifica
-def detectar_fecha(text):
-    t = text.lower()
-    # Hoy
-    if "hoy" in t:
-        return date.today()
-    # Ayer
-    if "ayer" in t:
-        return date.today() - timedelta(days=1)
-    return None  # Deja que otros detectores analicen después
-
-dias = {
-    "lunes": 0,
-    "martes": 1,
-    "miércoles": 2,
-    "miercoles": 2,
-    "jueves": 3,
-    "viernes": 4,
-    "sábado": 5,
-    "sabado": 5,
-    "domingo": 6,
-}
-def detectar_dia_semana(text):
-    t = text.lower()
-    for nombre, num in dias.items():
-        if nombre in t:
-            hoy = date.today()
-            hoy_num = hoy.weekday()
-            diferencia = hoy_num - num
-            if diferencia < 0:
-                diferencia += 7
-            return hoy - timedelta(days=diferencia)
-    return None
-
-def detectar_fecha_explicita(text):
-    t = text.lower()
-    # Formatos: 13-11-25 | 13/11/2025 | 13-11-2025
-    match = re.search(r"(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})", t)
-    if match:
-        dia, mes, año = match.groups()
-        año = int(año)
-        if año < 100:  # Interpretar 25 como 2025
-            año = 2000 + año
-        return date(año, int(mes), int(dia))
-    return None
-
-def obtener_fecha(text):
-    # 1. hoy / ayer
-    f1 = detectar_fecha(text)
-    if f1:
-        return f1
-    # 2. día de la semana
-    f2 = detectar_dia_semana(text)
-    if f2:
-        return f2
-    # 3. fecha explícita
-    f3 = detectar_fecha_explicita(text)
-    if f3:
-        return f3
-    # 4. si nada coincide → hoy
-    return None
+    except Exception as e:
+        print("❌ ERROR IA:", e, flush=True)
+        return None, "api_error"
 
 def get_file_info(file_id):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getFile?file_id={file_id}"

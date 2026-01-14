@@ -46,11 +46,12 @@
     <h4>Ya estás vinculado con el Bot. ¡Listo para usar!</h4>
     <p>ℹ️ Estructuras típicas que puedes mandar al bot para guardar correctamente un registro por mensaje: </p>
     <ol>
-        <li><strong>/gasto 25000 supermercado</strong> - Registra un gasto de 25000 en la categoría "supermercado".</li>
-        <li><strong>/ingreso 150000 venta moto</strong> - Registra un ingreso de 150000 en la categoría "ventas".</li>
+        <li><strong>gasto 25000 supermercado</strong> - Registra hoy un gasto de $25.000 en la categoría "Compras".</li>
+        <li><strong>ingreso 150000 venta moto</strong> - Registra hoy un ingreso de $150.000 en la categoría "Ventas".</li>
         <li><strong>/saldo</strong> - Muestra tu saldo actual.</li>
         <li><strong>/ayuda</strong> - Muestra este mensaje de ayuda.</li>   
     </ol>
+    <p>⚠️ Puedes expresarte como quieras en el mensaje al bot, pero ten en cuenta dejar claro la <strong>fecha</strong> de la transacción (hoy, ayer, lunes pasado, 2 de enero, 3-11-25), sino se tomará como hoy automaticamente.</p>
     <div style="display: flex;margin-top: 30px; gap: 8px; align-items: center;">
         <form method="POST"
             action="{% url 'desvincular_telegram' %}"

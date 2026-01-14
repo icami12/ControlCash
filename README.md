@@ -11,4 +11,3 @@ Permite llevar en tiempo real tus movimientos comunes del dia a dia, esos que ta
 - Visualización de las 20 transacciones más recientes.  
 - Integración con telegram API, para vincular y desvincular el usuario del sistema con el usuario de telegram.
 - Gestión de categorías personalizables.
-- Notificaciones en tiempo real al cargar un nuevo registro desde Telegram.

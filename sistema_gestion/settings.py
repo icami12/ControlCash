@@ -14,12 +14,17 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-NGROK_URL = os.getenv("NGROK_URL")
-SECRET_KEY_DJANGO = os.getenv("SECRET_KEY_DJANGO")
+# Cargar variables de entorno desde .env y luego .env.local (si existe)
+load_dotenv()  # .env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# .env.local (opcional) para credenciales locales como OPENAI_API_KEY
+load_dotenv(BASE_DIR / ".env.local", override=True)
+
+NGROK_URL = os.getenv("NGROK_URL")
+SECRET_KEY_DJANGO = os.getenv("SECRET_KEY_DJANGO")
 
 
 # Quick-start development settings - unsuitable for production
@@ -30,6 +35,20 @@ SECRET_KEY = SECRET_KEY_DJANGO
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+    },
+}
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', NGROK_URL]
 

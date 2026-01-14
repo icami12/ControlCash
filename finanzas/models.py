@@ -43,6 +43,8 @@ class Perfil(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     telegram_code = models.CharField(max_length=10, null=True, blank=True)
     telegram_chat_id = models.CharField(max_length=50, null=True, blank=True)
+    strikes_no_transaccion = models.PositiveIntegerField(default=0)
+    bloqueo_ia_hasta = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.user.username
